@@ -1,0 +1,45 @@
+# Intha code Python 3.10, 3.11, 3.12, 3.13-la nalla work aagum.
+import sounddevice as sd
+import json
+from vosk import Model, KaldiRecognizer
+
+# --- SETTINGS ---
+MODEL_PATH = "vosk-model-small-en-in-0.4"
+SAMPLE_RATE = 16000
+
+# --- CODE STARTS ---
+try:
+    model = Model(MODEL_PATH)
+except Exception:
+    print(f"ERROR: '{MODEL_PATH}' nu oru model folder inga illa.")
+    print("Please check the model folder name and location.")
+    exit(1)
+
+rec = KaldiRecognizer(model, SAMPLE_RATE)
+
+print("✅ Model loaded successfully!")
+print("🎤 Start speaking... (Press Ctrl+C to stop in terminal)")
+
+# Open microphone stream
+try:
+    with sd.RawInputStream(samplerate=SAMPLE_RATE, blocksize=8000, dtype='int16', channels=1) as stream:
+        while True:
+            # Read audio data from microphone
+            data = stream.read(4000)[0]
+            
+            # Feed data to Vosk recognizer
+            if rec.AcceptWaveform(data):
+                result_json = json.loads(rec.Result())
+                recognized_text = result_json.get('text', '')
+                if recognized_text:
+                    print(f"You said: {recognized_text}")
+            else:
+                partial_result_json = json.loads(rec.PartialResult())
+                partial_text = partial_result_json.get('partial', '')
+                if partial_text:
+                    print(f"Listening... {partial_text}", end='\r')
+
+except KeyboardInterrupt:
+    print("\n🛑 Stopped by user.")
+except Exception as e:
+    print(f"An error occurred: {e}")
