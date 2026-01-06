@@ -1,0 +1,40 @@
+import sys
+import queue
+import json
+import sounddevice as sd
+from vosk import Model, KaldiRecognizer
+
+# Queue for audio
+q = queue.Queue()
+
+# Callback for sounddevice
+def callback(indata, frames, time, status):
+    if status:
+        print(status, file=sys.stderr)
+    q.put(bytes(indata))
+
+def main():
+    # Load Indian English model (folder must be in same directory)
+    model = Model("vosk-model-small-en-in-0.4")
+    rec = KaldiRecognizer(model, 16000)
+
+    # Use microphone as input
+    with sd.RawInputStream(samplerate=16000, blocksize=8000, dtype='int16',
+                           channels=1, callback=callback):
+
+        print("🎤 Speak something... (Ctrl+C to stop)")
+        while True:
+            data = q.get()
+            if rec.AcceptWaveform(data):
+                result = rec.Result()
+                text = json.loads(result)["text"]
+                if text.strip():   # only print if text is not empty
+                    print("👉", text)
+            else:
+                # Optional: see partial results while speaking
+                partial = json.loads(rec.PartialResult())["partial"]
+                if partial:
+                    print("... ", partial)
+
+if "_name____main__":
+    main()
